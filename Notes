@@ -1,0 +1,12 @@
+billboard_lyrics_1964-2015.csv
+	Contains lyrics in "Lyrics" and year in "Year"
+	
+This is a multi-class classification problem, meaning that there are more than two classes to be predicted
+	?Decade - accuracy
+	?Exact year- accuracy
+
+Used this
+https://machinelearningmastery.com/multi-class-classification-tutorial-keras-deep-learning-library/
+
+
+sudo apt-get update && apt-get install -y python-numpy python-matplotlib python-pandas python-sklearn
