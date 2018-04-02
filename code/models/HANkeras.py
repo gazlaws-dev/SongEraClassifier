@@ -1,5 +1,3 @@
-# author - Richard Liao 
-# Dec 26 2016
 import numpy as np
 import pandas as pd
 import cPickle
@@ -24,7 +22,7 @@ from keras.models import Model
 
 from keras import backend as K
 from keras.engine.topology import Layer, InputSpec
-from keras import initializers
+from keras import initializers #
 
 MAX_SENT_LENGTH = 100
 MAX_SENTS = 15
@@ -32,50 +30,37 @@ MAX_NB_WORDS = 20000
 EMBEDDING_DIM = 100
 VALIDATION_SPLIT = 0.2
 
-def clean_str(string):
-	"""
-	Tokenization/string cleaning for dataset
-	Every dataset is lower cased except
-	"""
-	string = re.sub(r"\\", "", string)	
-	string = re.sub(r"\'", "", string)	
-	string = re.sub(r"\"", "", string) 
-	return string.strip().lower()
-
-data_train = pd.read_csv('data/billboard_lyrics_1964-2015.csv',header=0)
+data_train = pd.read_csv('lyrics.csv')
 print data_train.shape
 
-#exit()
 from nltk import tokenize
-import nltk
-#nltk.download('punkt')
-
-data_train.Year = np.divide(data_train.Year,10)
-data_train.Year = np.multiply(data_train.Year,10)
 
 lyrics = []
 labels = []
 texts = []
 
+#to get the decade
+data_train.Year = np.divide(data_train.Year,10)
+data_train.Year = np.multiply(data_train.Year,10)
+
+
 for idx in range(data_train.Lyrics.shape[0]):
-	if(not(isinstance(data_train.Lyrics[idx], basestring))):
-		data_train.Lyrics[idx]=""
-		# .loc[row_index,col_indexer] = value
-	text = BeautifulSoup(data_train.Lyrics[idx],"lxml")
-	text = clean_str(text.get_text().encode('ascii','ignore'))
+	text = BeautifulSoup(data_train.Lyrics[idx])
+	year =data_train.Year[idx]
+	if(year<1980 or year >=2010):
+		continue
+	year = (year-1980)/10;	#1980,90,2000
+	text = text.getText()
+	text = text.encode('ascii','ignore')
 	texts.append(text)
 	sentences = tokenize.sent_tokenize(text)
-	lyrics.append(sentences)
-	
-	labels.append(data_train.Year[idx])
+	lyrics.append(sentences)	
+	labels.append(year)
 
 tokenizer = Tokenizer(nb_words=MAX_NB_WORDS)
 tokenizer.fit_on_texts(texts)
 
 data = np.zeros((len(texts), MAX_SENTS, MAX_SENT_LENGTH), dtype='int32')
-
-print "Tokenized"
-print len(sentences)
 
 for i, sentences in enumerate(lyrics):
 	for j, sent in enumerate(sentences):
@@ -86,7 +71,7 @@ for i, sentences in enumerate(lyrics):
 				if k<MAX_SENT_LENGTH and tokenizer.word_index[word]<MAX_NB_WORDS:
 					data[i,j,k] = tokenizer.word_index[word]
 					k=k+1					
-############
+					
 word_index = tokenizer.word_index
 print('Total %s unique tokens.' % len(word_index))
 
@@ -105,11 +90,8 @@ y_train = labels[:-nb_validation_samples]
 x_val = data[-nb_validation_samples:]
 y_val = labels[-nb_validation_samples:]
 
-print('Number of positive and negative lyrics in trainng and validation set')
-print y_train.sum(axis=0)
-print y_val.sum(axis=0)
-##################
-GLOVE_DIR = "/home/gaz/data/glove"
+
+GLOVE_DIR = "/home/gaz/data/glove/glove.6B"
 embeddings_index = {}
 f = open(os.path.join(GLOVE_DIR, 'glove.6B.100d.txt'))
 for line in f:
@@ -121,40 +103,98 @@ f.close()
 
 print('Total %s word vectors.' % len(embeddings_index))
 
-embedding_matrix = np.random.random((len(word_index) + 1, EMBEDDING_DIM))
-for word, i in word_index.items():
-	embedding_vector = embeddings_index.get(word)
-	if embedding_vector is not None:
-		# words not found in embedding index will be all-zeros.
-		embedding_matrix[i] = embedding_vector
+#############################################################
+def f1_score(y_true, y_pred):
+
+	# Count positive samples.
+	c1 = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+	c2 = K.sum(K.round(K.clip(y_pred, 0, 1)))
+	c3 = K.sum(K.round(K.clip(y_true, 0, 1)))
+
+	# If there are no true samples, fix the F1 score at 0.
+	if c3 == 0:
+		return 0
+
+	# How many selected items are relevant?
+	precision = c1 / c2
+
+	# How many relevant items are selected?
+	recall = c1 / c3
+
+	# Calculate f1_score
+	f1_score = 2 * (precision * recall) / (precision + recall)
+	return f1_score
 
 
-############
-embedding_layer = Embedding(len(word_index) + 1,
-							EMBEDDING_DIM,
-							weights=[embedding_matrix],
-							input_length=MAX_SENT_LENGTH,
-							trainable=True)
+def precision(y_true, y_pred):
 
-sentence_input = Input(shape=(MAX_SENT_LENGTH,), dtype='int32')
-embedded_sequences = embedding_layer(sentence_input)
-l_lstm = Bidirectional(LSTM(100))(embedded_sequences)
-sentEncoder = Model(sentence_input, l_lstm)
+	# Count positive samples.
+	c1 = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+	c2 = K.sum(K.round(K.clip(y_pred, 0, 1)))
+	c3 = K.sum(K.round(K.clip(y_true, 0, 1)))
 
-review_input = Input(shape=(MAX_SENTS,MAX_SENT_LENGTH), dtype='int32')
-review_encoder = TimeDistributed(sentEncoder)(review_input)
-l_lstm_sent = Bidirectional(LSTM(100))(review_encoder)
-preds = Dense(2, activation='softmax')(l_lstm_sent)
-model = Model(review_input, preds)
+	# If there are no true samples, fix the F1 score at 0.
+	if c3 == 0:
+		return 0
 
-model.compile(loss='categorical_crossentropy',
-			  optimizer='rmsprop',
-			  metrics=['acc'])
+	# How many selected items are relevant?
+	precision = c1 / c2
 
-print("model fitting - Hierachical LSTM")
-print model.summary()
-model.fit(x_train, y_train, validation_data=(x_val, y_val),
-		  nb_epoch=10, batch_size=50)
+	return precision
+
+
+def recall(y_true, y_pred):
+
+	# Count positive samples.
+	c1 = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+	c3 = K.sum(K.round(K.clip(y_true, 0, 1)))
+
+	# If there are no true samples, fix the F1 score at 0.
+	if c3 == 0:
+		return 0
+
+	recall = c1 / c3
+
+	return recall
+
+#for Baseline check
+####################################################33
+
+
+#embedding_matrix = np.random.random((len(word_index) + 1, EMBEDDING_DIM))
+#for word, i in word_index.items():
+#	embedding_vector = embeddings_index.get(word)
+#	if embedding_vector is not None:
+#		# words not found in embedding index will be all-zeros.
+#		embedding_matrix[i] = embedding_vector
+#		
+#embedding_layer = Embedding(len(word_index) + 1,
+#							EMBEDDING_DIM,
+#							weights=[embedding_matrix],
+#							input_length=MAX_SENT_LENGTH,
+#							trainable=True)
+#sentence_input = Input(shape=(MAX_SENT_LENGTH,), dtype='int32')
+#embedded_sequences = embedding_layer(sentence_input)
+#l_lstm = Bidirectional(LSTM(100))(embedded_sequences)
+#sentEncoder = Model(sentence_input, l_lstm)
+
+#Lyrics_input = Input(shape=(MAX_SENTS,MAX_SENT_LENGTH), dtype='int32')
+#Lyrics_encoder = TimeDistributed(sentEncoder)(Lyrics_input)
+#l_lstm_sent = Bidirectional(LSTM(100))(Lyrics_encoder)
+#preds = Dense(3, activation='softmax')(l_lstm_sent)
+#model = Model(Lyrics_input, preds)
+
+#model.compile(loss='categorical_crossentropy',
+#			  optimizer='rmsprop',
+#			  metrics=['accuracy', recall])
+
+#print("model fitting - Hierachical LSTM")
+#print model.summary()
+#history_callback = model.fit(x_train, y_train, validation_data=(x_val, y_val), nb_epoch=1, batch_size=200)
+#loss_history = history_callback.history["loss"]
+#numpy_loss_history = np.array(loss_history)
+#np.savetxt("loss_history1.txt", numpy_loss_history, delimiter=",")
+#model.save('nlpOutput1.h5')
 
 # building Hierachical Attention network
 embedding_matrix = np.random.random((len(word_index) + 1, EMBEDDING_DIM))
@@ -172,17 +212,26 @@ embedding_layer = Embedding(len(word_index) + 1,
 
 class AttLayer(Layer):
 	def __init__(self, **kwargs):
-		self.init = initializations.get('normal')
+		self.init = initializers.get('normal')
 		#self.input_spec = [InputSpec(ndim=3)]
 		super(AttLayer, self).__init__(**kwargs)
-
+		
 	def build(self, input_shape):
 		assert len(input_shape)==3
-		#self.W = self.init((input_shape[-1],1))
-		self.W = self.init((input_shape[-1],))
-		#self.input_spec = [InputSpec(shape=input_shape)]
-		self.trainable_weights = [self.W]
-		super(AttLayer, self).build(input_shape)  # be sure you call this somewhere!
+		self.W = self.add_weight(name='kernel', 
+									shape=(input_shape[-1],),
+									initializer='normal',
+									trainable=True)
+		#?self.trainable_weights = [self.W]
+		super(AttLayer, self).build(input_shape)
+		
+#	def build(self, input_shape):
+#		assert len(input_shape)==3
+#		#self.W = self.init((input_shape[-1],1))
+#		self.W = self.init((input_shape[-1],))
+#		#self.input_spec = [InputSpec(shape=input_shape)]
+#		self.trainable_weights = [self.W]
+#		super(AttLayer, self).build(input_shape)  # be sure you call this somewhere!
 
 	def call(self, x, mask=None):
 		eij = K.tanh(K.dot(x, self.W))
@@ -192,6 +241,8 @@ class AttLayer(Layer):
 		
 		weighted_input = x*weights.dimshuffle(0,1,'x')
 		return weighted_input.sum(axis=1)
+	def compute_output_shape(self, input_shape):
+		return (input_shape[0], input_shape[-1])
 
 	def get_output_shape_for(self, input_shape):
 		return (input_shape[0], input_shape[-1])
@@ -203,18 +254,22 @@ l_dense = TimeDistributed(Dense(200))(l_lstm)
 l_att = AttLayer()(l_dense)
 sentEncoder = Model(sentence_input, l_att)
 
-review_input = Input(shape=(MAX_SENTS,MAX_SENT_LENGTH), dtype='int32')
-review_encoder = TimeDistributed(sentEncoder)(review_input)
-l_lstm_sent = Bidirectional(GRU(100, return_sequences=True))(review_encoder)
+Lyrics_input = Input(shape=(MAX_SENTS,MAX_SENT_LENGTH), dtype='int32')
+Lyrics_encoder = TimeDistributed(sentEncoder)(Lyrics_input)
+l_lstm_sent = Bidirectional(GRU(100, return_sequences=True))(Lyrics_encoder)	#
 l_dense_sent = TimeDistributed(Dense(200))(l_lstm_sent)
 l_att_sent = AttLayer()(l_dense_sent)
-preds = Dense(2, activation='softmax')(l_att_sent)
-model = Model(review_input, preds)
+preds = Dense(3, activation='softmax')(l_att_sent)	#change to number of classes
+model = Model(Lyrics_input, preds)
 
 model.compile(loss='categorical_crossentropy',
 			  optimizer='rmsprop',
-			  metrics=['acc'])
+			  metrics=['accuracy',  recall])
 
 print("model fitting - Hierachical attention network")
-model.fit(x_train, y_train, validation_data=(x_val, y_val),
-nb_epoch=10, batch_size=50)
+print model.summary()
+history_callback = model.fit(x_train, y_train, validation_data=(x_val, y_val), nb_epoch=10, batch_size=200)
+loss_history = history_callback.history["loss"]
+numpy_loss_history = np.array(loss_history)
+np.savetxt("loss_history2.txt", numpy_loss_history, delimiter=",")
+model.save('nlpOutput2.h5')
