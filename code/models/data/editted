@@ -1,0 +1,17 @@
+from PyLyrics import *
+import pandas as pd
+
+
+
+listOfDict = []
+
+read(year)
+read(lyric)
+newEntry = {"Year":year, "Lyrics":lyric}
+listOfDict.append(newEntry)
+
+df = pd.DataFrame(listOfDict)
+df.to_csv('user_input.csv')
+
+print("Done making csv!")
+

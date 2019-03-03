@@ -1,0 +1,33 @@
+\documentclass[a4paper,11pt,twocolumn]{article}
+\usepackage[top=1.2in, bottom=1in, left=1.4in, right=1.4in]{geometry}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\title{Title of your Project \\ {\normalsize Course Project of CS4041 NLP \\Final Report}}
+\author{Name1, Name2, Name3, Name4\\Guided By: Athira P K and Suneera C M}
+\begin{document}
+\maketitle
+\abstract{}Insert your abstract here. Please try to make it less than 150 words.
+\section{Introduction}
+Brief details introducing the topic of your \textit{project work}. Here  you  need  to  outline  the  underlying  concepts and   a 
+brief version of any theory needed to discuss the project (if required).
+\section{Problem Statement}
+A problem statement is a concise description of the issues that need to be addressed by the project group. This statement should illustrate a clear vision and the overall method that will be used to solve the problem at hand.
+
+\section{Work Done}
+The work that you have done so far related with the project should be stated  clearly. Include separate sections for design details, implementation and results.
+\subsection{Design}
+System design is the process of defining the components, modules, interfaces, and data for the  system to satisfy specified requirements of your project. Here you have to include the revised or final design(or algorithm) of your project. Describe the functions of different modules also.
+\subsection{Implementation}
+In this part you have to include the implementation details. Include the specifications of language/tool/hardware that you have used for the development. Give the analysis of the result obtained with suitable test cases (or the proof of currectness of the algorithm) if available.
+\subsection{Results}
+Show the results of your project by suitable test cases. Use suitable evaluation measures (for classification tasks, use recall, precision and f-measure). Comparison of your system/algorithm with existing systems or alternative approaches will be appreciated.
+\section{Future Work and Conclusions}
+Give a brief summary of the work that you have done and mention the observations/findings/results. Suggest modifications/extentions possible over your project if any.
+\begin{thebibliography}{}
+\bibitem{bib1}
+Name of Author(s). \textit{Book Title}, Publishing company, year of publication.
+\bibitem{bib2}
+Name of Author(s). \textit{Article title}, \textit{Periodical title}, Volume:inclusive pages, date of publication.
+\end{thebibliography}{}
+\end{document}
+
